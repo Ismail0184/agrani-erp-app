@@ -1,0 +1,48 @@
+name: agrani_mobile_erp
+description: Agrani ERP Mobile App with offline sync, professional ERP UI, attendance, GPS, orders and collections.
+publish_to: 'none'
+version: 1.1.0+2
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+  http: ^1.2.2
+  shared_preferences: ^2.3.2
+  sqflite: ^2.3.3+1
+  path: ^1.9.0
+  connectivity_plus: ^6.0.5
+  geolocator: ^13.0.1
+  battery_plus: ^6.0.3
+  permission_handler: ^11.3.1
+  intl: ^0.19.0
+  uuid: ^4.5.1
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+  image_picker: ^1.1.2
+  image_cropper: ^9.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^4.0.0
+  flutter_launcher_icons: ^0.14.4
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icons/app_icon.png"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/icons/app_icon_foreground.png"
+  remove_alpha_ios: true
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/icons/
