@@ -8,30 +8,52 @@ import 'services/gps_service.dart';
 import 'services/auto_logout_service.dart';
 import 'services/session_service.dart';
 import 'services/sync_service.dart';
-import 'services/auth_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await LocalDb.instance.database;
 
+  SessionService.instance.registerSessionExpiredHandler(_handleExpiredSession);
+
   var loggedIn = await SessionService.instance.isLoggedIn();
   if (loggedIn && AutoLogoutService.instance.isAutoLogoutTimeNow()) {
-    final loginAfterAutoLogout = await SessionService.instance.isLoginAfterAutoLogout();
-    if (!loginAfterAutoLogout) {
-      await AuthService.instance.logout(autoLogout: true);
-      loggedIn = false;
-    }
+    await SessionService.instance.clear();
+    loggedIn = false;
   }
 
   if (loggedIn) {
     SyncService.instance.startAutoSync();
-    if (AutoLogoutService.instance.canRecordAttendanceAndGpsNow()) {
-      await GpsService.instance.startTracking();
-      AutoLogoutService.instance.start();
-    }
+    await GpsService.instance.startTracking();
+    AutoLogoutService.instance.start();
+
+    // A server-side expired token may be detected while startup services run.
+    loggedIn = await SessionService.instance.isLoggedIn();
   }
 
   runApp(AgraniApp(loggedIn: loggedIn));
+}
+
+Future<void> _handleExpiredSession() async {
+  AutoLogoutService.instance.stop();
+
+  void redirectToLogin() {
+    final nav = AutoLogoutService.navigatorKey.currentState;
+    if (nav == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => redirectToLogin());
+      return;
+    }
+    nav.pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginPage()),
+      (_) => false,
+    );
+  }
+
+  // Redirect immediately; service shutdown must not hold the user on a secured
+  // screen after the local session has already been cleared.
+  redirectToLogin();
+
+  await SyncService.instance.stopAutoSync();
+  await GpsService.instance.stopTracking(saveLastPoint: false);
 }
 
 class AgraniApp extends StatefulWidget {

@@ -59,7 +59,7 @@ class _OrdersPageState extends State<OrdersPage> {
 
   @override
   Widget build(BuildContext context) {
-    final title = widget.fixedStatus == 'UNCHECKED' ? 'Delivered Confirmation' : 'Orders';
+    final title = widget.fixedStatus == 'UNCHECKED' ? 'Order Confirmation' : 'Orders';
     return Scaffold(
       drawer: const AppDrawer(),
       appBar: AppBar(title: Text(title), actions: [IconButton(onPressed: _load, icon: const Icon(Icons.refresh_rounded))]),
@@ -77,7 +77,7 @@ class _OrdersPageState extends State<OrdersPage> {
           padding: const EdgeInsets.all(16),
           children: [
             Row(children: [
-              Expanded(child: SectionTitle(title == 'Orders' ? 'Order List' : 'Delivered Confirmation List', subtitle: '${rows.length} records found')),
+              Expanded(child: SectionTitle(title == 'Orders' ? 'Order List' : 'Order Confirmation List', subtitle: '${rows.length} records found')),
               IconButton.filledTonal(
                 tooltip: showFilter ? 'Hide Filter' : 'Show Filter',
                 onPressed: () => setState(() => showFilter = !showFilter),

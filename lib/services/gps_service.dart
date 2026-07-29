@@ -131,7 +131,7 @@ class GpsService {
         intervalDuration: movingCheckInterval,
         forceLocationManager: false,
         foregroundNotificationConfig: const ForegroundNotificationConfig(
-          notificationTitle: 'Agrani ERP GPS Tracking',
+          notificationTitle: 'Agrani App GPS Tracking',
           notificationText: 'Attendance GPS tracking is running.',
           enableWakeLock: false,
           setOngoing: true,

@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../pages/login_page.dart';
 import 'auth_service.dart';
 import 'session_service.dart';
 
@@ -63,21 +62,21 @@ class AutoLogoutService {
         return;
       }
 
-      // User may login again after 10 PM. That session is allowed to use the
-      // app, but attendance/GPS are disabled, so do not force logout again.
-      if (await SessionService.instance.isLoginAfterAutoLogout()) {
-        stop();
-        return;
-      }
+      final token = await SessionService.instance.token();
 
-      await AuthService.instance.logout(autoLogout: true);
+      // Clear the local session and redirect first. Server logout is then
+      // completed with the captured token, so a slow network cannot leave the
+      // user visually logged in after 10:00 PM.
+      await SessionService.instance.expireSession();
 
-      final nav = navigatorKey.currentState;
-      if (nav != null) {
-        nav.pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const LoginPage()),
-          (_) => false,
+      try {
+        await AuthService.instance.logout(
+          autoLogout: true,
+          authTokenOverride: token,
+          sessionAlreadyCleared: true,
         );
+      } catch (_) {
+        // Local logout and redirect are already complete.
       }
     } finally {
       _processing = false;

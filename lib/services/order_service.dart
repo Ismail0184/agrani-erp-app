@@ -64,6 +64,11 @@ class OrderService {
     return result;
   }
 
+  Future<double> outletCurrentBalance(int outletId) async {
+    final data = await ApiClient.instance.get('outlet_current_balance', query: {'outlet_id': '$outletId'});
+    return double.tryParse('${data['opening_balance'] ?? 0}') ?? 0;
+  }
+
   Future<String> createHeader({required String orderDate, required OutletModel outlet}) async {
     final db = await LocalDb.instance.database;
     final localId = _uuid.v4();

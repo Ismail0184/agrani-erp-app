@@ -9,7 +9,7 @@ class LocalDb {
   Future<Database> get database async {
     if (_db != null) return _db!;
     final path = join(await getDatabasesPath(), 'agrani_mobile_erp.db');
-    _db = await openDatabase(path, version: 5, onCreate: _create, onUpgrade: _upgrade);
+    _db = await openDatabase(path, version: 7, onCreate: _create, onUpgrade: _upgrade);
     return _db!;
   }
 
@@ -36,6 +36,16 @@ class LocalDb {
     }
     if (oldVersion < 5) {
       await _createAuditPendingTables(db);
+    }
+    if (oldVersion < 6) {
+      await _safeAddColumn(db, 'outlets', 'route_id INTEGER DEFAULT 0');
+      await _safeAddColumn(db, 'outlets', 'route_name TEXT');
+    }
+    if (oldVersion < 7) {
+      await _safeAddColumn(db, 'app_collection_details', 'route_id INTEGER DEFAULT 0');
+      await _safeAddColumn(db, 'app_collection_details', 'route_name TEXT');
+      await _safeAddColumn(db, 'app_collection_details', 'opening_balance REAL DEFAULT 0');
+      await _safeAddColumn(db, 'app_collection_details', 'closing_balance REAL DEFAULT 0');
     }
   }
 
@@ -68,6 +78,8 @@ class LocalDb {
         outlet_name TEXT,
         outlet_code TEXT,
         address TEXT,
+        route_id INTEGER DEFAULT 0,
+        route_name TEXT,
         updated_at TEXT
       )
     ''');
@@ -158,9 +170,13 @@ class LocalDb {
         server_id INTEGER,
         collection_local_id TEXT,
         collection_no TEXT,
+        route_id INTEGER DEFAULT 0,
+        route_name TEXT,
         outlet_id INTEGER,
         outlet_name TEXT,
+        opening_balance REAL DEFAULT 0,
         amount REAL,
+        closing_balance REAL DEFAULT 0,
         payment_type TEXT,
         collection_channel TEXT,
         ledger_id INTEGER,

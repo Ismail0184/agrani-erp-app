@@ -9,6 +9,13 @@ import 'session_service.dart';
 import 'sync_service.dart';
 import 'auto_logout_service.dart';
 
+class AutoLogoutTimeException implements Exception {
+  final String message;
+  const AutoLogoutTimeException([this.message = 'Login is not available after 10:00 PM. Please login again after 12:00 AM.']);
+  @override
+  String toString() => message;
+}
+
 class ActiveDeviceLoginException implements Exception {
   final String message;
   const ActiveDeviceLoginException(this.message);
@@ -22,6 +29,10 @@ class AuthService {
   final _uuid = const Uuid();
 
   Future<void> login(String username, String password, {bool forceLogoutPrevious = false}) async {
+    if (AutoLogoutService.instance.isAutoLogoutTimeNow()) {
+      throw const AutoLogoutTimeException();
+    }
+
     final deviceId = await SessionService.instance.deviceId();
     late final Map<String, dynamic> data;
     try {
@@ -40,6 +51,12 @@ class AuthService {
     }
     final user = data['user'] as Map<String, dynamic>;
     final company = data['company'] is Map ? Map<String, dynamic>.from(data['company'] as Map) : <String, dynamic>{};
+    final menuPermissions = data['permissions'] is List
+        ? (data['permissions'] as List)
+            .whereType<Map>()
+            .map((item) => Map<String, dynamic>.from(item))
+            .toList()
+        : <Map<String, dynamic>>[];
     await SessionService.instance.saveSession(
       token: data['token'].toString(),
       userId: int.tryParse('${user['user_id']}') ?? 0,
@@ -50,29 +67,40 @@ class AuthService {
       photoUrl: '${user['photo_url'] ?? ''}',
       companyName: '${company['company_name'] ?? company['name'] ?? ''}',
       department: '${user['department'] ?? user['department_name'] ?? ''}',
+      designation: '${user['designation'] ?? user['designation_name'] ?? ''}',
+      menuPermissions: menuPermissions,
     );
-    await SessionService.instance.setLoginAfterAutoLogout(AutoLogoutService.instance.isAutoLogoutTimeNow());
+    AutoLogoutService.instance.start();
     await MasterDataService.instance.downloadMasterData(silent: true);
+
+    if (AutoLogoutService.instance.isAutoLogoutTimeNow() || !await SessionService.instance.isLoggedIn()) {
+      final token = await SessionService.instance.token();
+      await SessionService.instance.expireSession();
+      try {
+        await logout(
+          autoLogout: true,
+          authTokenOverride: token,
+          sessionAlreadyCleared: true,
+        );
+      } catch (_) {}
+      throw const AutoLogoutTimeException();
+    }
     SyncService.instance.startAutoSync();
 
-    // Company rule: after 10:00 PM Bangladesh time, the user can login and use
-    // the app, but attendance and GPS tracking must not be recorded.
-    if (AutoLogoutService.instance.canRecordAttendanceAndGpsNow()) {
-      await createAttendanceOnline();
-      await GpsService.instance.startTracking();
-      AutoLogoutService.instance.start();
-    } else {
-      await GpsService.instance.stopTracking(saveLastPoint: false);
-      AutoLogoutService.instance.stop();
-    }
+    await createAttendanceOnline();
+    await GpsService.instance.startTracking();
+    AutoLogoutService.instance.start();
   }
 
   Future<void> createAttendanceOnline() async {
     if (!AutoLogoutService.instance.canRecordAttendanceAndGpsNow()) return;
 
-    final db = await LocalDb.instance.database;
     final today = _formatDate(_bangladeshNow());
-    final existing = await db.query('attendance', where: 'attendance_date = ?', whereArgs: [today], limit: 1);
+    final cachedAttendance = await SessionService.instance.todayAttendanceCache();
+    if (cachedAttendance != null && '${cachedAttendance['login_time'] ?? ''}'.trim().isNotEmpty) return;
+
+    final db = await LocalDb.instance.database;
+    final existing = await db.query('attendance', where: 'attendance_date = ?', whereArgs: [today], orderBy: 'login_time ASC', limit: 1);
     if (existing.isNotEmpty) return;
 
     final now = _bangladeshNow();
@@ -106,8 +134,22 @@ class AuthService {
         'login_type': 'Online',
         'internet_status': 'Online',
       });
-      final att = res['attendance'] as Map<String, dynamic>?;
-      await _saveLocalAttendance(localId, today, loginTime, pos, 'Synced', serverId: int.tryParse('${att?['id'] ?? 0}'));
+      final att = res['attendance'] is Map
+          ? Map<String, dynamic>.from(res['attendance'] as Map)
+          : <String, dynamic>{};
+      final firstLoginTime = '${att['login_time'] ?? loginTime}'.trim().isEmpty
+          ? loginTime
+          : '${att['login_time']}';
+      final firstLoginStatus = '${att['attendance_status'] ?? ''}'.trim();
+      await _saveLocalAttendance(
+        localId,
+        today,
+        firstLoginTime,
+        pos,
+        'Synced',
+        serverId: int.tryParse('${att['id'] ?? 0}'),
+        attendanceStatus: firstLoginStatus,
+      );
     } catch (_) {
       await _saveLocalAttendance(localId, today, loginTime, pos, 'Pending');
     }
@@ -122,12 +164,27 @@ class AuthService {
         longitude <= 92.80;
   }
 
-  Future<void> _saveLocalAttendance(String localId, String date, String loginTime, Position? pos, String syncStatus, {int? serverId}) async {
+  Future<void> _saveLocalAttendance(
+    String localId,
+    String date,
+    String loginTime,
+    Position? pos,
+    String syncStatus, {
+    int? serverId,
+    String? attendanceStatus,
+  }) async {
     if (!AutoLogoutService.instance.canRecordAttendanceAndGpsNow()) return;
 
     final db = await LocalDb.instance.database;
-    final now = _bangladeshNow();
-    final status = now.hour < 9 || (now.hour == 9 && now.minute <= 15) ? 'Present' : 'Late';
+    final parsedLoginTime = DateTime.tryParse(loginTime.replaceFirst(' ', 'T'));
+    final calculatedStatus = parsedLoginTime == null ||
+            parsedLoginTime.hour < 9 ||
+            (parsedLoginTime.hour == 9 && parsedLoginTime.minute <= 15)
+        ? 'Present'
+        : 'Late';
+    final status = attendanceStatus?.trim().isNotEmpty == true
+        ? attendanceStatus!.trim()
+        : calculatedStatus;
     await db.insert('attendance', {
       'local_id': localId,
       'server_id': serverId,
@@ -147,7 +204,11 @@ class AuthService {
     await SyncService.instance.syncIfOnline();
   }
 
-  Future<void> logout({bool autoLogout = false}) async {
+  Future<void> logout({
+    bool autoLogout = false,
+    String? authTokenOverride,
+    bool sessionAlreadyCleared = false,
+  }) async {
     final canRecordNow = AutoLogoutService.instance.canRecordAttendanceAndGpsNow();
     final logoutTime = _formatBangladeshDateTime(_bangladeshNow());
     final logoutDate = logoutTime.substring(0, 10);
@@ -162,18 +223,20 @@ class AuthService {
         'latitude': pos?.latitude,
         'longitude': pos?.longitude,
         'auto_logout': autoLogout ? 1 : 0,
-      });
+      }, authTokenOverride: authTokenOverride);
     } catch (_) {
       await _saveLogoutLocally(logoutDate: logoutDate, logoutTime: logoutTime, pos: pos, autoLogout: autoLogout);
     }
 
     try {
-      await ApiClient.instance.post('logout', {});
+      await ApiClient.instance.post('logout', {}, authTokenOverride: authTokenOverride);
     } catch (_) {}
 
     await SyncService.instance.stopAutoSync();
     AutoLogoutService.instance.stop();
-    await SessionService.instance.clear();
+    if (!sessionAlreadyCleared) {
+      await SessionService.instance.clear();
+    }
   }
 
   Future<Position?> _currentValidPosition() async {

@@ -16,16 +16,38 @@ class ApiClient {
   ApiClient._();
   static final ApiClient instance = ApiClient._();
 
-  Future<Map<String, dynamic>> get(String action, {Map<String, String>? query}) async {
+  Future<Map<String, dynamic>> get(
+    String action, {
+    Map<String, String>? query,
+    String? authTokenOverride,
+  }) async {
     final params = {'action': action, ...?query};
     final uri = Uri.parse(AppConfig.apiBaseUrl).replace(queryParameters: params);
-    final res = await http.get(uri, headers: await _headers(json: false)).timeout(AppConfig.apiTimeout);
+    final res = await http
+        .get(
+          uri,
+          headers: await _headers(
+            json: false,
+            authTokenOverride: authTokenOverride,
+          ),
+        )
+        .timeout(AppConfig.apiTimeout);
     return _parse(res);
   }
 
-  Future<Map<String, dynamic>> post(String action, Map<String, dynamic> body) async {
+  Future<Map<String, dynamic>> post(
+    String action,
+    Map<String, dynamic> body, {
+    String? authTokenOverride,
+  }) async {
     final uri = Uri.parse(AppConfig.apiBaseUrl).replace(queryParameters: {'action': action});
-    final res = await http.post(uri, headers: await _headers(), body: jsonEncode(body)).timeout(AppConfig.apiTimeout);
+    final res = await http
+        .post(
+          uri,
+          headers: await _headers(authTokenOverride: authTokenOverride),
+          body: jsonEncode(body),
+        )
+        .timeout(AppConfig.apiTimeout);
     return _parse(res);
   }
 
@@ -34,10 +56,16 @@ class ApiClient {
     required Map<String, String> fields,
     String? fileField,
     String? filePath,
+    String? authTokenOverride,
   }) async {
     final uri = Uri.parse(AppConfig.apiBaseUrl).replace(queryParameters: {'action': action});
     final request = http.MultipartRequest('POST', uri);
-    request.headers.addAll(await _headers(json: false));
+    request.headers.addAll(
+      await _headers(
+        json: false,
+        authTokenOverride: authTokenOverride,
+      ),
+    );
     request.fields.addAll(fields);
 
     if (fileField != null && filePath != null && filePath.trim().isNotEmpty) {
@@ -49,8 +77,11 @@ class ApiClient {
     return _parse(res);
   }
 
-  Future<Map<String, String>> _headers({bool json = true}) async {
-    final token = await SessionService.instance.token();
+  Future<Map<String, String>> _headers({
+    bool json = true,
+    String? authTokenOverride,
+  }) async {
+    final token = authTokenOverride ?? await SessionService.instance.token();
     return {
       if (json) 'Content-Type': 'application/json; charset=utf-8',
       'Accept': 'application/json',
@@ -61,7 +92,7 @@ class ApiClient {
     };
   }
 
-  Map<String, dynamic> _parse(http.Response res) {
+  Future<Map<String, dynamic>> _parse(http.Response res) async {
     final body = res.body.trim().isEmpty ? '{}' : res.body;
     Map<String, dynamic> decoded;
     try {
@@ -74,14 +105,45 @@ class ApiClient {
           res.statusCode,
         );
       }
+      if ((res.statusCode == 401 || res.statusCode == 419) &&
+          await SessionService.instance.isLoggedIn()) {
+        await SessionService.instance.expireSession();
+      }
       throw ApiException('Invalid server response: ${res.body}', res.statusCode);
     }
+
     final responseData = decoded['data'] is Map<String, dynamic>
         ? decoded['data'] as Map<String, dynamic>
         : <String, dynamic>{'data': decoded['data']};
+
     if (decoded['success'] != true) {
-      throw ApiException(decoded['message']?.toString() ?? 'API failed', res.statusCode, data: responseData);
+      final message = decoded['message']?.toString() ?? 'API failed';
+      if (await _isExpiredAuthenticatedSession(res.statusCode, message, responseData)) {
+        await SessionService.instance.expireSession();
+      }
+      throw ApiException(message, res.statusCode, data: responseData);
     }
     return responseData;
+  }
+
+  Future<bool> _isExpiredAuthenticatedSession(
+    int statusCode,
+    String message,
+    Map<String, dynamic> data,
+  ) async {
+    if (!await SessionService.instance.isLoggedIn()) return false;
+
+    if (statusCode == 401 || statusCode == 419) return true;
+
+    final reason = '${data['reason'] ?? data['code'] ?? ''}'.toLowerCase();
+    final text = '$message $reason'.toLowerCase();
+    final explicitlyExpired = text.contains('session expired') ||
+        text.contains('token expired') ||
+        text.contains('invalid token') ||
+        text.contains('unauthenticated') ||
+        text.contains('authentication required');
+
+    if (explicitlyExpired) return true;
+    return false;
   }
 }

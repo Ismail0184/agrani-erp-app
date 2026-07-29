@@ -83,8 +83,13 @@ class _LoginPageState extends State<LoginPage> {
                         child: Container(
                           width: 86,
                           height: 86,
+                          padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(color: AppColors.primary.withOpacity(.12), borderRadius: BorderRadius.circular(26)),
-                          child: const Icon(Icons.business_center_rounded, color: AppColors.primary, size: 46),
+                          child: Image.network(
+                            AppConfig.loginLogoUrl,
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, __, ___) => const Icon(Icons.business_center_rounded, color: AppColors.primary, size: 46),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 18),

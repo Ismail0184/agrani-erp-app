@@ -3,6 +3,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import '../core/api_client.dart';
 import '../models/outlet_master_model.dart';
+import '../models/outlet_model.dart';
 import '../models/territory_model.dart';
 import '../models/route_model.dart';
 import '../models/route_section_model.dart';
@@ -49,10 +50,43 @@ class OutletCreateService {
     return rows.map((e) => RouteSectionModel.fromMap(Map<String, dynamic>.from(e as Map))).where((e) => e.sectionName.trim().isNotEmpty).toList();
   }
 
+  Future<List<OutletModel>> outletsByRoute(int routeId) async {
+    final data = await ApiClient.instance.get('route_outlet_list', query: {'route_id': '$routeId'});
+    final rows = data['rows'] as List? ?? [];
+    return rows.map((e) => OutletModel.fromMap(Map<String, dynamic>.from(e as Map))).where((e) => e.outletName.trim().isNotEmpty).toList();
+  }
+
   Future<List<OutletMasterModel>> outletList() async {
     final data = await ApiClient.instance.get('outlet_master_list');
     final rows = data['rows'] as List? ?? [];
     return rows.map((e) => OutletMasterModel.fromMap(Map<String, dynamic>.from(e as Map))).toList();
+  }
+
+  Future<List<OutletMasterModel>> existingOutletUpdateList() async {
+    final data = await ApiClient.instance.get('existing_outlet_update_list');
+    final rows = data['rows'] as List? ?? [];
+    return rows.map((e) => OutletMasterModel.fromMap(Map<String, dynamic>.from(e as Map))).toList();
+  }
+
+  Future<void> updateExistingOutlet({
+    required int outletId,
+    required String locationText,
+    required double latitude,
+    required double longitude,
+    required String shopImagePath,
+  }) async {
+    await ApiClient.instance.postMultipart(
+      'existing_outlet_update',
+      fields: {
+        'outlet_id': '$outletId',
+        'map_location_text': locationText,
+        'latitude': '$latitude',
+        'longitude': '$longitude',
+        'location_source': 'GPS',
+      },
+      fileField: 'shop_image',
+      filePath: shopImagePath,
+    );
   }
 
   Future<void> createOutlet({

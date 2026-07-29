@@ -1,12 +1,32 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!-- Internet Permission -->
     <uses-permission android:name="android.permission.INTERNET" />
 
-    <!-- Camera/Gallery Permission for Audit Checklist Attachment -->
+    <!-- Camera access is kept for taking a new photo. -->
     <uses-permission android:name="android.permission.CAMERA" />
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+
+    <!--
+      Google Play Photo and Video Permissions policy:
+      The app selects individual images through Android's system Photo Picker
+      (via image_picker) and must not request broad photo/video/storage access.
+
+      These merger rules also remove restricted permissions if a dependency
+      adds them in a lower-priority manifest.
+    -->
+    <uses-permission
+        android:name="android.permission.READ_MEDIA_IMAGES"
+        tools:node="remove" />
+    <uses-permission
+        android:name="android.permission.READ_MEDIA_VIDEO"
+        tools:node="remove" />
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        tools:node="remove" />
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        tools:node="remove" />
 
     <!-- Location Permission -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
@@ -61,7 +81,7 @@
 
 
 
-        <!-- Required by image_cropper for camera/gallery crop screen -->
+        <!-- Required by image_cropper after an image is returned by camera/system picker -->
         <activity
             android:name="com.yalantis.ucrop.UCropActivity"
             android:screenOrientation="portrait"

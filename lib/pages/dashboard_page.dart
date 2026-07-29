@@ -1,17 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../core/api_client.dart';
 import '../core/app_theme.dart';
 import '../core/local_db.dart';
 import '../services/gps_service.dart';
+import '../services/menu_permission_service.dart';
 import '../services/session_service.dart';
 import '../widgets/pro_widgets.dart';
 import 'app_drawer.dart';
 import 'collections_page.dart';
 import 'create_outlet_index_page.dart';
 import 'order_confirmation_page.dart';
+import 'order_pending_delivery.dart';
 import 'orders_page.dart';
 import 'sync_page.dart';
 import 'reports_page.dart';
+import 'expenses_entry.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -27,6 +31,8 @@ class _DashboardPageState extends State<DashboardPage> {
   String companyName = '';
   Map<String, dynamic>? attendance;
   Map<String, int> counts = {};
+  List<Map<String, dynamic>> menuPermissions = [];
+  List<Map<String, dynamic>> monthlyAttendance = [];
   bool loading = true;
 
   @override
@@ -39,10 +45,37 @@ class _DashboardPageState extends State<DashboardPage> {
     name = await SessionService.instance.fullName();
     photo = await SessionService.instance.photoUrl();
     companyName = await SessionService.instance.companyName();
+    menuPermissions = await MenuPermissionService.instance.load(refresh: true);
     attendance = await LocalDb.instance.todayAttendance();
     attendance ??= await SessionService.instance.todayAttendanceCache();
     counts = await LocalDb.instance.dashboardCounts();
+    monthlyAttendance = await _loadMonthlyAttendance();
     if (mounted) setState(() => loading = false);
+  }
+
+  Future<List<Map<String, dynamic>>> _loadMonthlyAttendance() async {
+    final now = DateTime.now();
+    final from = DateFormat('yyyy-MM-dd').format(DateTime(now.year, now.month, 1));
+    final to = DateFormat('yyyy-MM-dd').format(now);
+
+    try {
+      final response = await ApiClient.instance.get(
+        'attendance_history',
+        query: {'from': from, 'to': to},
+      );
+      final rows = response['rows'];
+      if (rows is List) {
+        return rows
+            .whereType<Map>()
+            .map((row) => Map<String, dynamic>.from(row))
+            .toList();
+      }
+    } catch (_) {}
+
+    if (attendance != null) {
+      return [Map<String, dynamic>.from(attendance!)];
+    }
+    return [];
   }
 
   @override
@@ -66,6 +99,8 @@ class _DashboardPageState extends State<DashboardPage> {
                   _billingStyleSummary(),
                   const SizedBox(height: 14),
                   _miniStatusRow(),
+                  const SizedBox(height: 14),
+                  _monthlyLoginStatusTable(),
                   if (loading) const Padding(padding: EdgeInsets.only(top: 18), child: LinearProgressIndicator()),
                 ]),
               ),
@@ -77,7 +112,7 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Widget _branchHeader() {
-    final title = companyName.trim().isEmpty ? 'Agrani ERP' : companyName.trim();
+    final title = companyName.trim().isEmpty ? 'Agrani App' : companyName.trim();
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
@@ -121,7 +156,7 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Widget _profileSummary() {
-    final login = '${attendance?['login_time'] ?? '-'}';
+    final login = _displayLoginTime('${attendance?['login_time'] ?? ''}');
     final today = DateFormat('EEE, dd MMM yyyy').format(DateTime.now());
 
     return Container(
@@ -193,22 +228,91 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
+  bool _hasMenu(String url) {
+    return MenuPermissionService.instance.hasUrl(menuPermissions, url);
+  }
+
+  String _menuTitle(String url, String fallback) {
+    final permission = MenuPermissionService.instance.findByUrl(menuPermissions, url);
+    final title = '${permission?['main_menu_name'] ?? ''}'.trim();
+    return title.isEmpty ? fallback : title;
+  }
+
   Widget _quickMenuGrid() {
-    final items = [
-      _DashAction('Orders', Icons.shopping_cart_rounded, AppColors.secondary, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const OrdersPage()))),
-      _DashAction('Delivery', Icons.verified_rounded, AppColors.success, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const OrderConfirmationPage()))),
-      _DashAction('Collection', Icons.payments_rounded, AppColors.accent, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CollectionsPage()))),
-      _DashAction('Outlet', Icons.add_business_rounded, AppColors.purple, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateOutletIndexPage()))),
-      _DashAction('Sync', Icons.sync_rounded, AppColors.primary, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SyncPage()))),
-      _DashAction('Reports', Icons.analytics_rounded, AppColors.secondary, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ReportsPage()))),
-      _DashAction('GPS', Icons.my_location_rounded, AppColors.danger, () async {
-        await GpsService.instance.captureCurrentPoint();
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('GPS point saved for sync')));
-        _load();
-      }),
-      _DashAction('Refresh', Icons.refresh_rounded, AppColors.primaryDark, _load),
-    ];
+    final items = <_DashAction>[];
+
+    if (_hasMenu('orders_page.dart')) {
+      items.add(_DashAction(
+        _menuTitle('orders_page.dart', 'Orders'),
+        Icons.shopping_cart_rounded,
+        AppColors.secondary,
+        () => Navigator.push(context, MaterialPageRoute(builder: (_) => const OrdersPage())),
+      ));
+    }
+    if (_hasMenu('order_confirmation_page.dart')) {
+      items.add(_DashAction(
+        _menuTitle('order_confirmation_page.dart', 'Order Confirm'),
+        Icons.verified_rounded,
+        AppColors.success,
+        () => Navigator.push(context, MaterialPageRoute(builder: (_) => const OrderConfirmationPage())),
+      ));
+    }
+    if (_hasMenu('order_pending_delivery.dart')) {
+      items.add(_DashAction(
+        _menuTitle('order_pending_delivery.dart', 'Pending Delivery'),
+        Icons.local_shipping_rounded,
+        AppColors.danger,
+        () => Navigator.push(context, MaterialPageRoute(builder: (_) => const OrderPendingDeliveryPage())),
+      ));
+    }
+    if (_hasMenu('collections_page.dart')) {
+      items.add(_DashAction(
+        _menuTitle('collections_page.dart', 'Collection'),
+        Icons.payments_rounded,
+        AppColors.accent,
+        () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CollectionsPage())),
+      ));
+    }
+    if (_hasMenu('expenses_entry.dart')) {
+      items.add(_DashAction(
+        _menuTitle('expenses_entry.dart', 'Expense Entry'),
+        Icons.receipt_long_rounded,
+        AppColors.purple,
+        () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ExpensesEntryPage())),
+      ));
+    }
+    if (_hasMenu('create_outlet_index_page.dart')) {
+      items.add(_DashAction(
+        _menuTitle('create_outlet_index_page.dart', 'Outlet'),
+        Icons.add_business_rounded,
+        AppColors.purple,
+        () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateOutletIndexPage())),
+      ));
+    }
+
+    items.add(_DashAction(
+      'Sync',
+      Icons.sync_rounded,
+      AppColors.primary,
+      () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SyncPage())),
+    ));
+
+    if (_hasMenu('reports_page.dart')) {
+      items.add(_DashAction(
+        _menuTitle('reports_page.dart', 'Reports'),
+        Icons.analytics_rounded,
+        AppColors.secondary,
+        () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ReportsPage())),
+      ));
+    }
+
+    items.add(_DashAction('GPS', Icons.my_location_rounded, AppColors.danger, () async {
+      await GpsService.instance.captureCurrentPoint();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('GPS point saved for sync')));
+      _load();
+    }));
+    items.add(_DashAction('Refresh', Icons.refresh_rounded, AppColors.primaryDark, _load));
 
     return ProCard(
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
@@ -229,24 +333,29 @@ class _DashboardPageState extends State<DashboardPage> {
       final compact = constraints.maxWidth < 340;
       final rowHeight = compact ? 64.0 : 68.0;
       final rowGap = compact ? 6.0 : 8.0;
+      final rowCount = (items.length / 4).ceil();
 
-      return Column(mainAxisSize: MainAxisSize.min, children: [
-        SizedBox(
-          height: rowHeight,
-          child: Row(children: [
-            for (int i = 0; i < 4; i++)
-              Expanded(child: _quickMenuItem(items[i], compact: compact)),
-          ]),
-        ),
-        SizedBox(height: rowGap),
-        SizedBox(
-          height: rowHeight,
-          child: Row(children: [
-            for (int i = 4; i < 8; i++)
-              Expanded(child: _quickMenuItem(items[i], compact: compact)),
-          ]),
-        ),
-      ]);
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (int row = 0; row < rowCount; row++) ...[
+            SizedBox(
+              height: rowHeight,
+              child: Row(
+                children: [
+                  for (int column = 0; column < 4; column++)
+                    Expanded(
+                      child: row * 4 + column < items.length
+                          ? _quickMenuItem(items[row * 4 + column], compact: compact)
+                          : const SizedBox.shrink(),
+                    ),
+                ],
+              ),
+            ),
+            if (row < rowCount - 1) SizedBox(height: rowGap),
+          ],
+        ],
+      );
     });
   }
 
@@ -434,11 +543,129 @@ class _DashboardPageState extends State<DashboardPage> {
   Widget _miniStatusRow() {
     final status = '${attendance?['attendance_status'] ?? '-'}';
     final sync = '${attendance?['sync_status'] ?? '-'}';
+    final attendanceColor = status.toLowerCase() == 'late' ? AppColors.danger : AppColors.success;
     return Row(children: [
-      Expanded(child: _smallCard('Attendance', status, Icons.verified_user_rounded, AppColors.success)),
+      Expanded(child: _smallCard('Attendance', status, Icons.verified_user_rounded, attendanceColor)),
       const SizedBox(width: 10),
       Expanded(child: _smallCard('Sync Status', sync, Icons.cloud_sync_rounded, AppColors.secondary)),
     ]);
+  }
+
+  Widget _monthlyLoginStatusTable() {
+    final now = DateTime.now();
+    final recordsByDate = <String, Map<String, dynamic>>{};
+
+    for (final row in monthlyAttendance) {
+      final date = '${row['attendance_date'] ?? ''}'.trim();
+      if (date.isNotEmpty) recordsByDate[date] = row;
+    }
+
+    final todayKey = DateFormat('yyyy-MM-dd').format(now);
+    if (!recordsByDate.containsKey(todayKey) && attendance != null) {
+      recordsByDate[todayKey] = attendance!;
+    }
+
+    final rows = <Widget>[];
+    for (int day = 1; day <= now.day; day++) {
+      final date = DateTime(now.year, now.month, day);
+      final key = DateFormat('yyyy-MM-dd').format(date);
+      final record = recordsByDate[key];
+      final status = '${record?['attendance_status'] ?? 'No Login'}'.trim();
+      final loginTime = _displayLoginTime('${record?['login_time'] ?? ''}');
+      final isLate = status.toLowerCase() == 'late';
+      final isPresent = status.toLowerCase() == 'present';
+      final statusColor = isLate
+          ? AppColors.danger
+          : isPresent
+              ? AppColors.success
+              : AppColors.muted;
+
+      rows.add(
+        Container(
+          padding: const EdgeInsets.symmetric(vertical: 9),
+          decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: Color(0xFFEFF2F6))),
+          ),
+          child: Row(children: [
+            Expanded(
+              flex: 4,
+              child: Text(
+                DateFormat('dd MMM, EEE').format(date),
+                style: const TextStyle(color: AppColors.text, fontWeight: FontWeight.w800, fontSize: 11.5),
+              ),
+            ),
+            Expanded(
+              flex: 3,
+              child: Text(
+                loginTime,
+                style: const TextStyle(color: AppColors.muted, fontWeight: FontWeight.w700, fontSize: 11.5),
+              ),
+            ),
+            Expanded(
+              flex: 3,
+              child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(color: statusColor, shape: BoxShape.circle),
+                ),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    status.isEmpty ? 'No Login' : status,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.right,
+                    style: TextStyle(color: statusColor, fontWeight: FontWeight.w900, fontSize: 11.5),
+                  ),
+                ),
+              ]),
+            ),
+          ]),
+        ),
+      );
+    }
+
+    return ProCard(
+      padding: const EdgeInsets.fromLTRB(14, 13, 14, 6),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(color: AppColors.primary.withOpacity(.10), borderRadius: BorderRadius.circular(14)),
+            child: const Icon(Icons.calendar_view_month_rounded, color: AppColors.primary, size: 21),
+          ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('Current Month Login Status', style: TextStyle(color: AppColors.text, fontWeight: FontWeight.w900, fontSize: 15)),
+              const SizedBox(height: 2),
+              Text(DateFormat('MMMM yyyy').format(now), style: const TextStyle(color: AppColors.muted, fontWeight: FontWeight.w700, fontSize: 11)),
+            ]),
+          ),
+        ]),
+        const SizedBox(height: 10),
+        const Row(children: [
+          Expanded(flex: 4, child: Text('Date', style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.w900, fontSize: 10.5))),
+          Expanded(flex: 3, child: Text('First Login', style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.w900, fontSize: 10.5))),
+          Expanded(flex: 3, child: Text('Status', textAlign: TextAlign.right, style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.w900, fontSize: 10.5))),
+        ]),
+        const SizedBox(height: 2),
+        ...rows,
+      ]),
+    );
+  }
+
+  String _displayLoginTime(String value) {
+    final cleaned = value.trim();
+    if (cleaned.isEmpty || cleaned == 'null') return '-';
+    try {
+      final parsed = DateTime.parse(cleaned.replaceFirst(' ', 'T'));
+      return DateFormat('hh:mm a').format(parsed);
+    } catch (_) {
+      return cleaned;
+    }
   }
 
   Widget _smallCard(String title, String value, IconData icon, Color color) {
@@ -457,6 +684,25 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Widget _quickActionBar() {
+    final actions = <Widget>[
+      _bottomAction('Home', Icons.home_rounded, _load),
+      if (_hasMenu('collections_page.dart'))
+        _bottomAction(
+          _menuTitle('collections_page.dart', 'Collect'),
+          Icons.payments_rounded,
+          () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CollectionsPage())),
+        ),
+      if (_hasMenu('orders_page.dart'))
+        _bottomAction(
+          _menuTitle('orders_page.dart', 'Order'),
+          Icons.add_rounded,
+          () => Navigator.push(context, MaterialPageRoute(builder: (_) => const OrdersPage())),
+          selected: true,
+        ),
+      _bottomAction('Sync', Icons.sync_rounded, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SyncPage()))),
+      _bottomAction('More', Icons.menu_rounded, () => _scaffoldKey.currentState?.openDrawer()),
+    ];
+
     return SafeArea(
       top: false,
       child: Container(
@@ -466,13 +712,11 @@ class _DashboardPageState extends State<DashboardPage> {
           border: const Border(top: BorderSide(color: Color(0xFFE2E8F0))),
           boxShadow: [BoxShadow(color: Colors.black.withOpacity(.08), blurRadius: 18, offset: const Offset(0, -8))],
         ),
-        child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, crossAxisAlignment: CrossAxisAlignment.end, children: [
-          _bottomAction('Home', Icons.home_rounded, _load),
-          _bottomAction('Collect', Icons.payments_rounded, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CollectionsPage()))),
-          _bottomAction('Order', Icons.add_rounded, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const OrdersPage())), selected: true),
-          _bottomAction('Sync', Icons.sync_rounded, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SyncPage()))),
-          _bottomAction('More', Icons.menu_rounded, () => _scaffoldKey.currentState?.openDrawer()),
-        ]),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: actions,
+        ),
       ),
     );
   }

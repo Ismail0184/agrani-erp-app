@@ -3,6 +3,7 @@ import '../core/api_client.dart';
 import '../core/local_db.dart';
 import '../models/outlet_model.dart';
 import '../models/collection_ledger_model.dart';
+import '../models/route_model.dart';
 
 class CollectionService {
   CollectionService._();
@@ -21,6 +22,15 @@ class CollectionService {
     final data = await ApiClient.instance.get('collection_ledger_list', query: {'channel': channel});
     final rows = data['rows'] as List? ?? [];
     return rows.map((e) => CollectionLedgerModel.fromMap(Map<String, dynamic>.from(e as Map))).where((e) => e.displayName.trim().isNotEmpty).toList();
+  }
+
+
+  Future<double> outletCurrentBalance(int outletId) async {
+    final data = await ApiClient.instance.get(
+      'outlet_current_balance',
+      query: {'outlet_id': '$outletId'},
+    );
+    return double.tryParse('${data['opening_balance'] ?? 0}') ?? 0;
   }
 
   Future<List<Map<String, dynamic>>> listCollections({
@@ -94,7 +104,10 @@ class CollectionService {
   Future<void> addLine({
     required String collectionLocalId,
     required String collectionNo,
+    required OutletRouteModel route,
     required OutletModel outlet,
+    required double openingBalance,
+    required double closingBalance,
     required double amount,
     required String channel,
     required CollectionLedgerModel ledger,
@@ -105,9 +118,13 @@ class CollectionService {
       'local_id': _uuid.v4(),
       'collection_local_id': collectionLocalId,
       'collection_no': collectionNo,
+      'route_id': route.routeId,
+      'route_name': route.displayName,
       'outlet_id': outlet.outletId,
       'outlet_name': outlet.outletName,
+      'opening_balance': openingBalance,
       'amount': amount,
+      'closing_balance': closingBalance,
       'payment_type': channel,
       'collection_channel': channel,
       'ledger_id': ledger.ledgerId,
@@ -165,8 +182,10 @@ class CollectionService {
     final rows = await db.query('app_collection_details', where: 'local_id = ?', whereArgs: [lineLocalId], limit: 1);
     if (rows.isEmpty) return;
     final collectionLocalId = '${rows.first['collection_local_id']}';
+    final openingBalance = double.tryParse('${rows.first['opening_balance'] ?? 0}') ?? 0;
     await db.update('app_collection_details', {
       'amount': amount,
+      'closing_balance': openingBalance + amount,
       if (remarks != null) 'remarks': remarks,
       'sync_status': 'Pending',
       'updated_at': DateTime.now().toIso8601String(),
@@ -225,9 +244,13 @@ class CollectionService {
       await ApiClient.instance.post('collection_add', {
         'local_id': line['local_id'],
         'collection_no': no,
+        'route_id': line['route_id'],
+        'route_name': line['route_name'],
         'outlet_id': line['outlet_id'],
         'outlet_name': line['outlet_name'],
+        'opening_balance': line['opening_balance'],
         'amount': line['amount'],
+        'closing_balance': line['closing_balance'],
         'payment_type': line['payment_type'] ?? line['collection_channel'] ?? 'Cash',
         'collection_channel': line['collection_channel'] ?? line['payment_type'] ?? 'Cash',
         'ledger_id': line['ledger_id'],
