@@ -23,6 +23,13 @@ class ActiveDeviceLoginException implements Exception {
   String toString() => message;
 }
 
+class LocationRequiredException implements Exception {
+  final String message;
+  const LocationRequiredException(this.message);
+  @override
+  String toString() => message;
+}
+
 class AuthService {
   AuthService._();
   static final AuthService instance = AuthService._();
@@ -32,6 +39,8 @@ class AuthService {
     if (AutoLogoutService.instance.isAutoLogoutTimeNow()) {
       throw const AutoLogoutTimeException();
     }
+
+    await _ensureLocationReadyForLogin();
 
     final deviceId = await SessionService.instance.deviceId();
     late final Map<String, dynamic> data;
@@ -90,6 +99,32 @@ class AuthService {
     await createAttendanceOnline();
     await GpsService.instance.startTracking();
     AutoLogoutService.instance.start();
+  }
+
+  Future<void> _ensureLocationReadyForLogin() async {
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      throw const LocationRequiredException(
+        'Location must be turned on before login. Please enable device location and try again.',
+      );
+    }
+
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    if (permission == LocationPermission.denied) {
+      throw const LocationRequiredException(
+        'Location permission is required to login. Please allow location access and try again.',
+      );
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      throw const LocationRequiredException(
+        'Location permission is permanently denied. Please enable it from app settings before login.',
+      );
+    }
   }
 
   Future<void> createAttendanceOnline() async {

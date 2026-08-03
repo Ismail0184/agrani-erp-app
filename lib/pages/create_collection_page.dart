@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../core/bangladesh_time.dart';
 
 import '../core/app_theme.dart';
 import '../models/collection_ledger_model.dart';
@@ -45,7 +46,7 @@ class _CreateCollectionPageState extends State<CreateCollectionPage> {
   @override
   void initState() {
     super.initState();
-    collectionDate = df.format(DateTime.now());
+    collectionDate = df.format(BangladeshTime.now());
     amountCtrl.addListener(_amountChanged);
     _loadMaster();
   }
@@ -118,7 +119,14 @@ class _CreateCollectionPageState extends State<CreateCollectionPage> {
       ledgerLoading = true;
     });
     try {
-      ledgers = await CollectionService.instance.ledgerList(selectedChannel);
+      final result = await CollectionService.instance.ledgerList(selectedChannel);
+      if (!mounted) return;
+      setState(() {
+        ledgers = result;
+        if (selectedChannel == 'Cash' && result.isNotEmpty) {
+          ledger = result.first;
+        }
+      });
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -128,6 +136,20 @@ class _CreateCollectionPageState extends State<CreateCollectionPage> {
     } finally {
       if (mounted) setState(() => ledgerLoading = false);
     }
+  }
+
+  void _clearEntrySelection() {
+    amountCtrl.clear();
+    remarksCtrl.clear();
+    setState(() {
+      route = null;
+      outlet = null;
+      outlets = [];
+      openingBalance = 0;
+      channel = null;
+      ledger = null;
+      ledgers = [];
+    });
   }
 
   Future<void> _initiate() async {
@@ -171,10 +193,6 @@ class _CreateCollectionPageState extends State<CreateCollectionPage> {
     amountCtrl.clear();
     remarksCtrl.clear();
     setState(() {
-      route = null;
-      outlet = null;
-      outlets = [];
-      openingBalance = 0;
       channel = null;
       ledger = null;
       ledgers = [];
@@ -220,6 +238,7 @@ class _CreateCollectionPageState extends State<CreateCollectionPage> {
         padding: const EdgeInsets.all(16),
         children: [
           ProCard(
+            color: const Color(0xFFF0F7FF),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -231,8 +250,8 @@ class _CreateCollectionPageState extends State<CreateCollectionPage> {
                           final picked = await showDatePicker(
                             context: context,
                             firstDate: DateTime(2020),
-                            lastDate: DateTime.now(),
-                            initialDate: DateTime.tryParse(collectionDate) ?? DateTime.now(),
+                            lastDate: BangladeshTime.now(),
+                            initialDate: DateTime.tryParse(collectionDate) ?? BangladeshTime.now(),
                           );
                           if (picked != null) setState(() => collectionDate = df.format(picked));
                         },
@@ -257,6 +276,7 @@ class _CreateCollectionPageState extends State<CreateCollectionPage> {
           if (initiated) ...[
             const SizedBox(height: 16),
             ProCard(
+              color: const Color(0xFFF0FBF4),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -299,7 +319,7 @@ class _CreateCollectionPageState extends State<CreateCollectionPage> {
                   const SizedBox(height: 12),
                   SearchableSelect<String>(
                     label: 'Collection Channel *',
-                    hint: 'Select Cash, Bank, MFS or POS',
+                    hint: 'Select Cash, Bank, Cheque, MFS or POS',
                     value: channel,
                     items: CollectionService.channels,
                     icon: Icons.account_balance_wallet_rounded,
@@ -336,12 +356,34 @@ class _CreateCollectionPageState extends State<CreateCollectionPage> {
                   const SizedBox(height: 12),
                   TextField(controller: remarksCtrl, decoration: const InputDecoration(labelText: 'Remarks', prefixIcon: Icon(Icons.note_alt_rounded))),
                   const SizedBox(height: 12),
-                  FilledButton.icon(onPressed: _addLine, icon: const Icon(Icons.add_rounded), label: const Text('Add Collection')),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: _addLine,
+                          icon: const Icon(Icons.add_rounded),
+                          label: const Text('Add Collection'),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      OutlinedButton.icon(
+                        onPressed: _clearEntrySelection,
+                        icon: const Icon(Icons.clear_all_rounded),
+                        label: const Text('Clear'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Route and outlet remain selected after adding a collection. Use Clear to reset them.',
+                    style: TextStyle(color: AppColors.muted, fontSize: 11, fontWeight: FontWeight.w700),
+                  ),
                 ],
               ),
             ),
             const SizedBox(height: 16),
             ProCard(
+              color: const Color(0xFFFFF7ED),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -373,6 +415,7 @@ class _CreateCollectionPageState extends State<CreateCollectionPage> {
             ),
             const SizedBox(height: 16),
             ProCard(
+              color: const Color(0xFFF8F5FF),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [

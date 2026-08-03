@@ -1,5 +1,6 @@
 import '../core/api_client.dart';
 import '../models/ledger_model.dart';
+import '../models/expense_vehicle_model.dart';
 
 class ExpenseService {
   ExpenseService._();
@@ -15,6 +16,15 @@ class ExpenseService {
               ledger.ledgerId.trim().isNotEmpty &&
               ledger.displayName.trim().isNotEmpty,
         )
+        .toList();
+  }
+
+  Future<List<ExpenseVehicleModel>> vehicles() async {
+    final data = await ApiClient.instance.get('expense_vehicle_list');
+    return (data['rows'] as List? ?? [])
+        .whereType<Map>()
+        .map((row) => ExpenseVehicleModel.fromMap(Map<String, dynamic>.from(row)))
+        .where((vehicle) => vehicle.id > 0 && vehicle.displayName.trim().isNotEmpty)
         .toList();
   }
 
@@ -53,6 +63,7 @@ class ExpenseService {
     required String ledgerId,
     required String narration,
     required double amount,
+    int vehicleId = 0,
   }) {
     return ApiClient.instance.post('expense_voucher_add_line', {
       'voucher_no': voucherNo,
@@ -61,6 +72,7 @@ class ExpenseService {
       'amount': amount,
       'dr_amt': amount,
       'cr_amt': 0,
+      'vehicle_id': vehicleId,
     });
   }
 

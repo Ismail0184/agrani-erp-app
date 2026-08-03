@@ -8,6 +8,7 @@ import '../widgets/pro_widgets.dart';
 import 'app_drawer.dart';
 import 'create_order_page.dart';
 import 'order_details_page.dart';
+import '../core/bangladesh_time.dart';
 
 class OrdersPage extends StatefulWidget {
   final String? fixedStatus;
@@ -30,7 +31,7 @@ class _OrdersPageState extends State<OrdersPage> {
   @override
   void initState() {
     super.initState();
-    final now = DateTime.now();
+    final now = BangladeshTime.now();
     from = df.format(DateTime(now.year, now.month, 1));
     to = df.format(now);
     _load();
@@ -44,7 +45,7 @@ class _OrdersPageState extends State<OrdersPage> {
   }
 
   Future<void> _pickDate(bool isFrom) async {
-    final current = DateTime.tryParse(isFrom ? from : to) ?? DateTime.now();
+    final current = DateTime.tryParse(isFrom ? from : to) ?? BangladeshTime.now();
     final picked = await showDatePicker(context: context, firstDate: DateTime(2020), lastDate: DateTime(2100), initialDate: current);
     if (picked == null) return;
     setState(() {
@@ -129,7 +130,7 @@ class _OrdersPageState extends State<OrdersPage> {
 
   Widget _orderCard(Map<String, dynamic> row) {
     final status = '${row['status']}';
-    final canModify = status != 'CONFIRMED';
+    final canModify = status.trim().toUpperCase() == 'UNCHECKED';
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: InkWell(
@@ -158,7 +159,7 @@ class _OrdersPageState extends State<OrdersPage> {
             ]),
             if (canModify) ...[
               const SizedBox(height: 10),
-              const Text('Tap order number/card to view, edit or delete before final confirmation.', style: TextStyle(color: AppColors.muted, fontSize: 12)),
+              const Text('Tap order number/card to view, edit or delete this UNCHECKED order.', style: TextStyle(color: AppColors.muted, fontSize: 12)),
             ],
           ]),
         ),

@@ -4,6 +4,7 @@ import '../core/api_client.dart';
 import '../core/app_theme.dart';
 import '../widgets/pro_widgets.dart';
 import 'gps_track_map_page.dart';
+import '../core/bangladesh_time.dart';
 
 class ReportGpsTrackPage extends StatefulWidget {
   const ReportGpsTrackPage({super.key});
@@ -21,7 +22,7 @@ class _ReportGpsTrackPageState extends State<ReportGpsTrackPage> {
   @override
   void initState() {
     super.initState();
-    date = df.format(DateTime.now());
+    date = df.format(BangladeshTime.now());
   }
 
   Future<void> _viewOnMap() async {
@@ -51,7 +52,7 @@ class _ReportGpsTrackPageState extends State<ReportGpsTrackPage> {
   }
 
   Future<void> _pickDate() async {
-    final current = DateTime.tryParse(date) ?? DateTime.now();
+    final current = DateTime.tryParse(date) ?? BangladeshTime.now();
     final picked = await showDatePicker(
       context: context,
       firstDate: DateTime(2020),

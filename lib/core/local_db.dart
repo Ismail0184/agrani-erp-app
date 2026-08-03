@@ -1,5 +1,6 @@
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
+import 'bangladesh_time.dart';
 
 class LocalDb {
   LocalDb._();
@@ -234,14 +235,14 @@ class LocalDb {
 
   Future<Map<String, dynamic>?> todayAttendance() async {
     final db = await database;
-    final today = DateTime.now().toIso8601String().substring(0, 10);
+    final today = BangladeshTime.date();
     final rows = await db.query('attendance', where: 'attendance_date = ?', whereArgs: [today], orderBy: 'login_time ASC', limit: 1);
     return rows.isEmpty ? null : rows.first;
   }
 
   Future<Map<String, int>> dashboardCounts() async {
     final db = await database;
-    final today = DateTime.now().toIso8601String().substring(0, 10);
+    final today = BangladeshTime.date();
     Future<int> count(String sql, List<Object?> args) async {
       final row = await db.rawQuery(sql, args);
       return (row.first['c'] as int?) ?? 0;
@@ -262,7 +263,7 @@ class LocalDb {
       'total_qty': (row.first['qty'] as num?)?.toDouble() ?? 0,
       'total_amount': (row.first['amount'] as num?)?.toDouble() ?? 0,
       'sync_status': 'Pending',
-      'updated_at': DateTime.now().toIso8601String(),
+      'updated_at': BangladeshTime.isoLocal(),
     }, where: 'local_id = ?', whereArgs: [orderLocalId]);
   }
 
@@ -272,7 +273,7 @@ class LocalDb {
     await db.update('app_collection_master', {
       'total_amount': (row.first['amount'] as num?)?.toDouble() ?? 0,
       'sync_status': 'Pending',
-      'updated_at': DateTime.now().toIso8601String(),
+      'updated_at': BangladeshTime.isoLocal(),
     }, where: 'local_id = ?', whereArgs: [collectionLocalId]);
   }
 }

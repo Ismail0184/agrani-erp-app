@@ -8,6 +8,7 @@ import '../widgets/pro_widgets.dart';
 import 'app_drawer.dart';
 import 'collection_details_page.dart';
 import 'create_collection_page.dart';
+import '../core/bangladesh_time.dart';
 
 class CollectionsPage extends StatefulWidget {
   const CollectionsPage({super.key});
@@ -29,7 +30,7 @@ class _CollectionsPageState extends State<CollectionsPage> {
   @override
   void initState() {
     super.initState();
-    final now = DateTime.now();
+    final now = BangladeshTime.now();
     from = df.format(DateTime(now.year, now.month, 1));
     to = df.format(now);
     _load();
@@ -43,7 +44,7 @@ class _CollectionsPageState extends State<CollectionsPage> {
   }
 
   Future<void> _pickDate(bool isFrom) async {
-    final current = DateTime.tryParse(isFrom ? from : to) ?? DateTime.now();
+    final current = DateTime.tryParse(isFrom ? from : to) ?? BangladeshTime.now();
     final picked = await showDatePicker(context: context, firstDate: DateTime(2020), lastDate: DateTime(2100), initialDate: current);
     if (picked == null) return;
     setState(() {

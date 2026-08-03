@@ -1,53 +1,47 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Internet Permission -->
+    <!-- Internet -->
     <uses-permission android:name="android.permission.INTERNET" />
 
-    <!-- Camera access is kept for taking a new photo. -->
+    <!-- Camera -->
     <uses-permission android:name="android.permission.CAMERA" />
 
-    <!--
-      Google Play Photo and Video Permissions policy:
-      The app selects individual images through Android's system Photo Picker
-      (via image_picker) and must not request broad photo/video/storage access.
-
-      These merger rules also remove restricted permissions if a dependency
-      adds them in a lower-priority manifest.
-    -->
+    <!-- Remove broad photo/video/storage permissions -->
     <uses-permission
         android:name="android.permission.READ_MEDIA_IMAGES"
         tools:node="remove" />
+
     <uses-permission
         android:name="android.permission.READ_MEDIA_VIDEO"
         tools:node="remove" />
+
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         tools:node="remove" />
+
     <uses-permission
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         tools:node="remove" />
 
-    <!-- Location Permission -->
+    <!-- Location -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-
-    <!-- Background Location Permission -->
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
 
-    <!-- Foreground Service Permission for GPS Tracking -->
+    <!-- GPS foreground service -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
 
-    <!-- Notification Permission for Android 13+ -->
+    <!-- Android 13+ notifications -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
-    <!-- Optional: GPS hardware support -->
+    <!-- Optional GPS hardware -->
     <uses-feature
         android:name="android.hardware.location.gps"
         android:required="false" />
 
-    <!-- Optional: camera support for audit attachment -->
+    <!-- Optional camera hardware -->
     <uses-feature
         android:name="android.hardware.camera"
         android:required="false" />
@@ -57,6 +51,14 @@
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true">
+
+        <!--
+            Required by Google Play for this enterprise
+            employee-monitoring application.
+        -->
+        <meta-data
+            android:name="isMonitoringTool"
+            android:value="enterprise_management" />
 
         <activity
             android:name=".MainActivity"
@@ -79,23 +81,21 @@
 
         </activity>
 
-
-
-        <!-- Required by image_cropper after an image is returned by camera/system picker -->
+        <!-- Image cropper -->
         <activity
             android:name="com.yalantis.ucrop.UCropActivity"
             android:screenOrientation="portrait"
             android:exported="false"
             android:theme="@style/Theme.AppCompat.Light.NoActionBar" />
 
-        <!-- Don't delete this. Flutter uses it. -->
+        <!-- Flutter embedding -->
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
 
     </application>
 
-    <!-- Required for Flutter text processing plugin -->
+    <!-- Flutter text processing -->
     <queries>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT" />

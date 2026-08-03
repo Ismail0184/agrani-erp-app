@@ -6,6 +6,7 @@ import '../services/master_data_service.dart';
 import '../services/order_service.dart';
 import '../widgets/pro_widgets.dart';
 import 'order_details_page.dart';
+import '../core/bangladesh_time.dart';
 
 class ReportOrderListPage extends StatefulWidget {
   const ReportOrderListPage({super.key});
@@ -26,7 +27,7 @@ class _ReportOrderListPageState extends State<ReportOrderListPage> {
   @override
   void initState() {
     super.initState();
-    final now = DateTime.now();
+    final now = BangladeshTime.now();
     from = df.format(DateTime(now.year, now.month, 1));
     to = df.format(now);
     _load();
@@ -40,7 +41,7 @@ class _ReportOrderListPageState extends State<ReportOrderListPage> {
   }
 
   Future<void> _pickDate(bool isFrom) async {
-    final current = DateTime.tryParse(isFrom ? from : to) ?? DateTime.now();
+    final current = DateTime.tryParse(isFrom ? from : to) ?? BangladeshTime.now();
     final picked = await showDatePicker(context: context, firstDate: DateTime(2020), lastDate: DateTime(2100), initialDate: current);
     if (picked == null) return;
     setState(() { if (isFrom) { from = df.format(picked); } else { to = df.format(picked); } });

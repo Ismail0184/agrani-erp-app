@@ -1,3 +1,4 @@
+import '../core/bangladesh_time.dart';
 class OutletModel {
   final int outletId;
   final String outletName;
@@ -31,6 +32,6 @@ class OutletModel {
         'address': address,
         'route_id': routeId,
         'route_name': routeName,
-        'updated_at': DateTime.now().toIso8601String(),
+        'updated_at': BangladeshTime.isoLocal(),
       };
 }

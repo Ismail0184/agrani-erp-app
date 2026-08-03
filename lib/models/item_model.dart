@@ -1,3 +1,4 @@
+import '../core/bangladesh_time.dart';
 class ItemModel {
   final int itemId;
   final String itemName;
@@ -18,6 +19,6 @@ class ItemModel {
         'item_name': itemName,
         'item_code': itemCode,
         'sales_rate': salesRate,
-        'updated_at': DateTime.now().toIso8601String(),
+        'updated_at': BangladeshTime.isoLocal(),
       };
 }

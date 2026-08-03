@@ -4,13 +4,14 @@ import '../core/local_db.dart';
 import '../models/outlet_model.dart';
 import '../models/collection_ledger_model.dart';
 import '../models/route_model.dart';
+import '../core/bangladesh_time.dart';
 
 class CollectionService {
   CollectionService._();
   static final CollectionService instance = CollectionService._();
   final _uuid = const Uuid();
 
-  static const List<String> channels = ['Cash', 'Bank', 'MFS', 'POS'];
+  static const List<String> channels = ['Cash', 'Bank', 'Cheque', 'MFS', 'POS'];
 
   String _newCollectionNo() => 'COL-${DateTime.now().millisecondsSinceEpoch}';
   bool _isServerId(String id) => id.startsWith('server:');
@@ -96,7 +97,7 @@ class CollectionService {
       'collection_date': collectionDate,
       'status': 'Draft',
       'sync_status': 'Pending',
-      'created_at': DateTime.now().toIso8601String(),
+      'created_at': BangladeshTime.isoLocal(),
     });
     return localId;
   }
@@ -131,7 +132,7 @@ class CollectionService {
       'ledger_name': ledger.displayName,
       'remarks': remarks,
       'sync_status': 'Pending',
-      'created_at': DateTime.now().toIso8601String(),
+      'created_at': BangladeshTime.isoLocal(),
     });
     await LocalDb.instance.recalcCollection(collectionLocalId);
   }
@@ -188,7 +189,7 @@ class CollectionService {
       'closing_balance': openingBalance + amount,
       if (remarks != null) 'remarks': remarks,
       'sync_status': 'Pending',
-      'updated_at': DateTime.now().toIso8601String(),
+      'updated_at': BangladeshTime.isoLocal(),
     }, where: 'local_id = ?', whereArgs: [lineLocalId]);
     await LocalDb.instance.recalcCollection(collectionLocalId);
   }
@@ -226,7 +227,7 @@ class CollectionService {
     await db.update('app_collection_master', {
       'status': status,
       'sync_status': 'Pending',
-      'updated_at': DateTime.now().toIso8601String(),
+      'updated_at': BangladeshTime.isoLocal(),
     }, where: 'local_id = ? AND status <> ?', whereArgs: [collectionLocalId, 'CONFIRMED']);
   }
 

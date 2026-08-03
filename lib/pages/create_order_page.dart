@@ -9,6 +9,7 @@ import '../services/order_service.dart';
 import '../services/outlet_create_service.dart';
 import '../services/sync_service.dart';
 import '../widgets/pro_widgets.dart';
+import '../core/bangladesh_time.dart';
 
 class CreateOrderPage extends StatefulWidget {
   const CreateOrderPage({super.key});
@@ -39,7 +40,7 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
   @override
   void initState() {
     super.initState();
-    orderDate = df.format(DateTime.now());
+    orderDate = df.format(BangladeshTime.now());
     _loadMaster();
   }
 
@@ -170,6 +171,7 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
         padding: const EdgeInsets.all(16),
         children: [
           ProCard(
+            color: const Color(0xFFF0F7FF),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               const SectionTitle('Step 1 - Order Header'),
               InkWell(
@@ -180,7 +182,7 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
                           context: context,
                           firstDate: DateTime(2020),
                           lastDate: DateTime(2100),
-                          initialDate: DateTime.tryParse(orderDate) ?? DateTime.now(),
+                          initialDate: DateTime.tryParse(orderDate) ?? BangladeshTime.now(),
                         );
                         if (picked != null) setState(() => orderDate = df.format(picked));
                       },
@@ -244,6 +246,7 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
           if (initiated) ...[
             const SizedBox(height: 16),
             ProCard(
+              color: const Color(0xFFF2FBF5),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 const SectionTitle('Step 2 - Add Items'),
                 ItemSearchField(
@@ -266,6 +269,7 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
             ),
             const SizedBox(height: 16),
             ProCard(
+              color: const Color(0xFFFFF8E8),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 const SectionTitle('Step 3 - Review Items'),
                 if (lines.isEmpty) const Padding(padding: EdgeInsets.all(12), child: Text('No item added yet.')),
@@ -287,6 +291,7 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
             ),
             const SizedBox(height: 16),
             ProCard(
+              color: const Color(0xFFF7F1FF),
               child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                 const SectionTitle('Step 4 - Final Submission'),
                 FilledButton.icon(onPressed: _submit, icon: const Icon(Icons.check_circle_rounded), label: const Text('Confirm as UNCHECKED')),

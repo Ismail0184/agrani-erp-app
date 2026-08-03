@@ -4,6 +4,7 @@ import '../models/audit_checklist_models.dart';
 import '../models/company_model.dart';
 import '../services/audit_checklist_service.dart';
 import '../widgets/pro_widgets.dart';
+import '../core/bangladesh_time.dart';
 
 class ReportAuditChecklistPage extends StatefulWidget {
   const ReportAuditChecklistPage({super.key});
@@ -86,7 +87,7 @@ class _ReportAuditChecklistPageState extends State<ReportAuditChecklistPage> {
                   const SizedBox(height: 12),
                   InkWell(
                     onTap: () async {
-                      final picked = await showDatePicker(context: context, firstDate: DateTime(2024), lastDate: DateTime(2035), initialDate: date ?? DateTime.now());
+                      final picked = await showDatePicker(context: context, firstDate: DateTime(2024), lastDate: DateTime(2035), initialDate: date ?? BangladeshTime.now());
                       if (picked != null) setState(() => date = picked);
                     },
                     borderRadius: BorderRadius.circular(16),

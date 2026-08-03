@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import '../core/bangladesh_time.dart';
 
 import 'package:geolocator/geolocator.dart';
 
@@ -180,7 +181,7 @@ class AuditChecklistService {
           payload['others_text'] = othersText;
           await db.update(
             'audit_checklist_pending_actions',
-            {'payload': jsonEncode(payload), 'created_at': DateTime.now().toIso8601String()},
+            {'payload': jsonEncode(payload), 'created_at': BangladeshTime.isoLocal()},
             where: 'local_id = ?',
             whereArgs: [row['local_id']],
           );
@@ -235,7 +236,7 @@ class AuditChecklistService {
       'action': action,
       'payload': jsonEncode(payload),
       'sync_status': 'Pending',
-      'created_at': DateTime.now().toIso8601String(),
+      'created_at': BangladeshTime.isoLocal(),
     });
   }
 

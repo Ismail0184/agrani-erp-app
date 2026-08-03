@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../core/bangladesh_time.dart';
 
 import 'package:battery_plus/battery_plus.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -235,7 +236,7 @@ class GpsService {
   Future<void> _savePoint(Position position, {required String reason, required bool accuracyOk}) async {
     if (!AutoLogoutService.instance.canRecordAttendanceAndGpsNow()) return;
     final db = await LocalDb.instance.database;
-    final now = DateTime.now();
+    final now = BangladeshTime.now();
     final trackingTime = _formatDateTime(now);
     final online = await _isOnline();
     final attendanceId = await _todayAttendanceServerId();
@@ -256,7 +257,7 @@ class GpsService {
         'internet_status': online ? 'Online' : 'Offline',
         'gps_status': accuracyOk ? 'Enabled' : 'Low Accuracy',
         'sync_status': 'Pending',
-        'created_at': now.toIso8601String(),
+        'created_at': BangladeshTime.isoLocal(),
       },
       conflictAlgorithm: ConflictAlgorithm.ignore,
     );
@@ -281,7 +282,7 @@ class GpsService {
   Future<int?> _todayAttendanceServerId() async {
     try {
       final db = await LocalDb.instance.database;
-      final today = DateTime.now().toIso8601String().substring(0, 10);
+      final today = BangladeshTime.date();
       final rows = await db.query(
         'attendance',
         columns: ['server_id'],
@@ -304,7 +305,7 @@ class GpsService {
 
     try {
       final db = await LocalDb.instance.database;
-      final today = DateTime.now().toIso8601String().substring(0, 10);
+      final today = BangladeshTime.date();
       final rows = await db.query(
         'gps_tracking',
         where: 'tracking_date = ?',

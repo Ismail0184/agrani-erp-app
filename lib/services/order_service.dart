@@ -4,6 +4,7 @@ import '../core/api_client.dart';
 import '../core/local_db.dart';
 import '../models/item_model.dart';
 import '../models/outlet_model.dart';
+import '../core/bangladesh_time.dart';
 
 class OrderService {
   OrderService._();
@@ -80,7 +81,7 @@ class OrderService {
       'outlet_name': outlet.outletName,
       'status': 'Draft',
       'sync_status': 'Pending',
-      'created_at': DateTime.now().toIso8601String(),
+      'created_at': BangladeshTime.isoLocal(),
     });
     return localId;
   }
@@ -98,7 +99,7 @@ class OrderService {
       'qty': qty,
       'amount': amount,
       'sync_status': 'Pending',
-      'created_at': DateTime.now().toIso8601String(),
+      'created_at': BangladeshTime.isoLocal(),
     });
     await LocalDb.instance.recalcOrder(orderLocalId);
   }
@@ -154,7 +155,7 @@ class OrderService {
       'unit_price': rate,
       'amount': qty * rate,
       'sync_status': 'Pending',
-      'updated_at': DateTime.now().toIso8601String(),
+      'updated_at': BangladeshTime.isoLocal(),
     }, where: 'local_id = ?', whereArgs: [lineLocalId]);
     await LocalDb.instance.recalcOrder(orderLocalId);
   }
@@ -192,7 +193,7 @@ class OrderService {
     await db.update('app_order_master', {
       'status': status,
       'sync_status': 'Pending',
-      'updated_at': DateTime.now().toIso8601String(),
+      'updated_at': BangladeshTime.isoLocal(),
     }, where: 'local_id = ? AND status <> ?', whereArgs: [orderLocalId, 'CONFIRMED']);
   }
 

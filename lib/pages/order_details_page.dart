@@ -18,8 +18,8 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
   List<Map<String, dynamic>> lines = [];
   bool loading = true;
 
-  bool get isConfirmed => '${order?['status']}' == 'CONFIRMED';
-  bool get canModify => !isConfirmed;
+  String get orderStatus => '${order?['status'] ?? ''}'.trim().toUpperCase();
+  bool get canModify => orderStatus == 'UNCHECKED';
 
   @override
   void initState() {
@@ -151,7 +151,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
               const SizedBox(height: 10),
               OutlinedButton.icon(onPressed: _deleteOrder, icon: const Icon(Icons.delete_forever_rounded), label: const Text('Delete Order')),
             ]),
-          ) else const ProCard(child: Text('This order is CONFIRMED. Delete and update are disabled.', style: TextStyle(color: AppColors.success, fontWeight: FontWeight.w900))),
+          ) else const ProCard(child: Text('Only UNCHECKED orders can be edited or deleted. This order is read-only.', style: TextStyle(color: AppColors.success, fontWeight: FontWeight.w900))),
         ],
       ),
     );

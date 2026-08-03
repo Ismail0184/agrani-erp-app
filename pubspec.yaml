@@ -1,7 +1,7 @@
 name: agrani_mobile_erp
 description: Agrani ERP Mobile App with offline sync, professional ERP UI, attendance, GPS, orders and collections.
 publish_to: 'none'
-version: 1.1.2+4
+version: 1.1.6+8
 
 environment:
   sdk: '>=3.3.0 <4.0.0'

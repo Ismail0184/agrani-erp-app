@@ -16,6 +16,7 @@ import 'orders_page.dart';
 import 'sync_page.dart';
 import 'reports_page.dart';
 import 'expenses_entry.dart';
+import '../core/bangladesh_time.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -54,7 +55,7 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Future<List<Map<String, dynamic>>> _loadMonthlyAttendance() async {
-    final now = DateTime.now();
+    final now = BangladeshTime.now();
     final from = DateFormat('yyyy-MM-dd').format(DateTime(now.year, now.month, 1));
     final to = DateFormat('yyyy-MM-dd').format(now);
 
@@ -157,7 +158,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
   Widget _profileSummary() {
     final login = _displayLoginTime('${attendance?['login_time'] ?? ''}');
-    final today = DateFormat('EEE, dd MMM yyyy').format(DateTime.now());
+    final today = DateFormat('EEE, dd MMM yyyy').format(BangladeshTime.now());
 
     return Container(
       padding: const EdgeInsets.fromLTRB(10, 9, 10, 9),
@@ -552,7 +553,7 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Widget _monthlyLoginStatusTable() {
-    final now = DateTime.now();
+    final now = BangladeshTime.now();
     final recordsByDate = <String, Map<String, dynamic>>{};
 
     for (final row in monthlyAttendance) {

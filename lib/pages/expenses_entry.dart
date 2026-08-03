@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../core/bangladesh_time.dart';
 
 import '../core/app_theme.dart';
 import '../models/ledger_model.dart';
+import '../models/expense_vehicle_model.dart';
 import '../services/expense_service.dart';
 import '../widgets/pro_widgets.dart';
 import 'app_drawer.dart';
@@ -301,9 +303,28 @@ class _ExpenseVoucherCreatePageState
   String voucherDate = '';
   String voucherNo = '';
   String status = 'MANUAL';
+  static const Set<String> vehicleLedgerIds = {
+    '4004000300000000',
+    '4004000100000000',
+    '4004001300000000',
+    '4004000900000000',
+    '4004000700000000',
+    '4004000800000000',
+    '4004000200000000',
+    '4004001100000000',
+    '4004001000000000',
+    '4004000400000000',
+    '4004000500000000',
+    '4004000600000000',
+    '4004001200000000',
+  };
+
   List<LedgerModel> ledgers = [];
+  List<ExpenseVehicleModel> vehicles = [];
   List<Map<String, dynamic>> lines = [];
   LedgerModel? ledger;
+  ExpenseVehicleModel? vehicle;
+  bool vehicleLoading = false;
   bool loading = true;
   bool initiated = false;
   bool busy = false;
@@ -312,7 +333,7 @@ class _ExpenseVoucherCreatePageState
   @override
   void initState() {
     super.initState();
-    voucherDate = df.format(DateTime.now());
+    voucherDate = df.format(BangladeshTime.now());
     _loadInitial();
   }
 
@@ -337,6 +358,9 @@ class _ExpenseVoucherCreatePageState
       );
 
   bool get canConfirm => editable && totalAmount > 0;
+
+  bool get vehicleRequired =>
+      ledger != null && vehicleLedgerIds.contains(ledger!.ledgerId.trim());
 
   Future<void> _loadInitial() async {
     try {
@@ -388,6 +412,8 @@ class _ExpenseVoucherCreatePageState
       setState(() {
         ledgers = result;
         ledger = null;
+        vehicle = null;
+        vehicles = [];
       });
       if (result.isEmpty) {
         _show(
@@ -402,13 +428,40 @@ class _ExpenseVoucherCreatePageState
     }
   }
 
+  Future<void> _selectLedger(LedgerModel selected) async {
+    final needsVehicle = vehicleLedgerIds.contains(selected.ledgerId.trim());
+    setState(() {
+      ledger = selected;
+      vehicle = null;
+      if (!needsVehicle) vehicles = [];
+      vehicleLoading = needsVehicle;
+    });
+
+    if (!needsVehicle) return;
+
+    try {
+      final result = await ExpenseService.instance.vehicles();
+      if (!mounted || ledger?.ledgerId != selected.ledgerId) return;
+      setState(() => vehicles = result);
+      if (result.isEmpty) {
+        _show('No vehicle found for the current company and section.', danger: true);
+      }
+    } catch (e) {
+      if (mounted) _show('Vehicle list load failed: $e', danger: true);
+    } finally {
+      if (mounted && ledger?.ledgerId == selected.ledgerId) {
+        setState(() => vehicleLoading = false);
+      }
+    }
+  }
+
   Future<void> _pickDate() async {
     if (initiated || busy) return;
     final picked = await showDatePicker(
       context: context,
       firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
-      initialDate: DateTime.tryParse(voucherDate) ?? DateTime.now(),
+      lastDate: BangladeshTime.now(),
+      initialDate: DateTime.tryParse(voucherDate) ?? BangladeshTime.now(),
     );
     if (picked != null) {
       setState(() => voucherDate = df.format(picked));
@@ -446,6 +499,11 @@ class _ExpenseVoucherCreatePageState
       return;
     }
 
+    if (vehicleRequired && vehicle == null) {
+      _show('Please select a vehicle for the selected ledger.', danger: true);
+      return;
+    }
+
     final amount = double.tryParse(amountCtrl.text.trim()) ?? 0;
     if (amount <= 0) {
       _show('Please enter a valid amount greater than zero.', danger: true);
@@ -459,11 +517,14 @@ class _ExpenseVoucherCreatePageState
         ledgerId: ledger!.ledgerId,
         narration: narrationCtrl.text.trim(),
         amount: amount,
+        vehicleId: vehicle?.id ?? 0,
       );
       if (!mounted) return;
       setState(() {
         _applyVoucherData(data);
         ledger = null;
+        vehicle = null;
+        vehicles = [];
         narrationCtrl.clear();
         amountCtrl.clear();
       });
@@ -780,8 +841,31 @@ class _ExpenseVoucherCreatePageState
               icon: Icons.account_balance_rounded,
               titleBuilder: (item) => item.displayName,
               subtitleBuilder: (item) => item.ledgerId,
-              onChanged: (value) => setState(() => ledger = value),
+              onChanged: _selectLedger,
             ),
+            if (vehicleRequired) ...[
+              const SizedBox(height: 12),
+              if (vehicleLoading)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(10),
+                    child: CircularProgressIndicator(),
+                  ),
+                )
+              else
+                SearchableSelect<ExpenseVehicleModel>(
+                  label: 'Vehicle *',
+                  hint: vehicles.isEmpty
+                      ? 'No vehicle available'
+                      : 'Search vehicle by registration or type',
+                  value: vehicle,
+                  items: vehicles,
+                  icon: Icons.local_shipping_rounded,
+                  titleBuilder: (item) => item.displayName,
+                  subtitleBuilder: (item) => 'Vehicle ID: ${item.id}',
+                  onChanged: (value) => setState(() => vehicle = value),
+                ),
+            ],
             const SizedBox(height: 12),
             TextField(
               controller: narrationCtrl,
@@ -900,6 +984,7 @@ class _ExpenseVoucherCreatePageState
     final amount = _number(line['dr_amt']);
     final ledgerName = '${line['ledger_name'] ?? ''}'.trim();
     final ledgerId = '${line['ledger_id'] ?? ''}'.trim();
+    final vehicleName = '${line['vehicle_name'] ?? ''}'.trim();
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -933,6 +1018,16 @@ class _ExpenseVoucherCreatePageState
                   ledgerName.isEmpty ? ledgerId : '$ledgerId - $ledgerName',
                   style: const TextStyle(fontWeight: FontWeight.w900),
                 ),
+                if (vehicleName.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'Vehicle: $vehicleName',
+                    style: const TextStyle(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
                 if ('${line['narration'] ?? ''}'.trim().isNotEmpty) ...[
                   const SizedBox(height: 4),
                   Text(

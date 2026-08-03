@@ -7,6 +7,7 @@ import '../widgets/pro_widgets.dart';
 import 'app_drawer.dart';
 import 'audit_checklist_create_page.dart';
 import 'audit_checklist_details_page.dart';
+import '../core/bangladesh_time.dart';
 
 class AuditChecklistIndexPage extends StatefulWidget {
   const AuditChecklistIndexPage({super.key});
@@ -158,7 +159,7 @@ class _AuditChecklistIndexPageState extends State<AuditChecklistIndexPage> {
                   const SizedBox(height: 12),
                   InkWell(
                     onTap: () async {
-                      final picked = await showDatePicker(context: context, firstDate: DateTime(2024), lastDate: DateTime(2035), initialDate: filterDate ?? DateTime.now());
+                      final picked = await showDatePicker(context: context, firstDate: DateTime(2024), lastDate: DateTime(2035), initialDate: filterDate ?? BangladeshTime.now());
                       if (picked != null) setState(() => filterDate = picked);
                     },
                     borderRadius: BorderRadius.circular(16),
